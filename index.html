@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>抽選看板 · Funbox / 來玩聚</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F7F7;
+  --surface:#FFFFFF;
+  --mist:#FBFBFB;
+  --ink:#2F3033;
+  --muted:#8B8E93;
+  --faint:#B4B7BB;
+  --line:#E7E7E7;
+  --hair:#F0F0F0;
+  --gold:#B08E5E;
+  --pad:clamp(16px,4vw,32px);
+  --track:.18em;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Montserrat","Noto Sans TC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;
+}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+a{color:inherit}
+.mono{font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.wrap{max-width:1000px;margin:0 auto;padding:0 var(--pad) 110px}
+
+/* ---------- masthead ---------- */
+.mast{text-align:center;padding:54px 0 30px}
+.mark{
+  margin:0;font-size:clamp(20px,4vw,26px);font-weight:300;
+  letter-spacing:.42em;text-indent:.42em;line-height:1.2;
+}
+.rule{width:46px;height:1px;background:var(--ink);opacity:.35;margin:20px auto 16px}
+.sub{
+  margin:0 0 18px;min-height:18px;font-size:11.5px;font-weight:400;
+  letter-spacing:var(--track);text-transform:uppercase;color:var(--faint);
+}
+.btn-ghost{
+  border:1px solid var(--line);background:var(--surface);
+  padding:10px 22px;font-size:11.5px;font-weight:500;
+  letter-spacing:var(--track);text-transform:uppercase;color:var(--muted);
+  transition:border-color .18s,color .18s;
+}
+.btn-ghost:hover{border-color:var(--ink);color:var(--ink)}
+
+/* ---------- toolbar ---------- */
+.bar{
+  position:sticky;top:0;z-index:30;
+  background:var(--paper);
+  padding:14px 0 15px;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  margin-bottom:26px;
+}
+.bar-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+
+.seg{display:inline-flex;border:1px solid var(--line);background:var(--surface)}
+.seg button{
+  padding:10px 19px;font-size:12px;font-weight:500;
+  letter-spacing:var(--track);text-transform:uppercase;color:var(--muted);
+  transition:background .18s,color .18s;
+}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+.drop{position:relative}
+.drop>.trig{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--line);background:var(--surface);
+  padding:10px 17px;font-size:12px;font-weight:500;
+  letter-spacing:var(--track);text-transform:uppercase;color:var(--muted);
+  transition:border-color .18s,color .18s;
+}
+.drop>.trig:hover,.drop.on>.trig{border-color:var(--ink);color:var(--ink)}
+.trig .n{
+  font-size:11px;font-weight:600;letter-spacing:.02em;
+  color:var(--gold);border:1px solid var(--gold);border-radius:99px;
+  padding:0 7px;line-height:16px;
+}
+.trig .caret{font-size:8px;color:var(--faint)}
+
+.panel{
+  display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:40;
+  width:min(470px,88vw);max-height:min(58vh,430px);overflow:auto;
+  background:var(--surface);border:1px solid var(--line);
+  padding:16px;box-shadow:0 24px 44px -26px rgba(47,48,51,.30);
+}
+.drop.on .panel{display:block}
+.panel-head{display:flex;gap:14px;margin-bottom:14px}
+.panel-head button{
+  font-size:11px;letter-spacing:var(--track);text-transform:uppercase;
+  font-weight:500;color:var(--gold);
+}
+.panel-head button:hover{color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  border:1px solid var(--line);background:var(--surface);
+  padding:7px 12px;font-size:14px;font-weight:400;
+  display:inline-flex;align-items:center;gap:7px;text-align:left;
+  transition:border-color .16s,background .16s,color .16s;
+}
+.chip:hover{border-color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip .c{font-size:12px;font-weight:500;letter-spacing:.09em;color:var(--muted)}
+.chip[aria-pressed="true"] .c{color:rgba(255,255,255,.72)}
+.chip .k{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"] .k{color:rgba(255,255,255,.5)}
+
+.search{
+  border:0;border-bottom:1px solid var(--line);background:transparent;
+  padding:9px 2px;font-size:14px;font-family:inherit;color:var(--ink);
+  min-width:150px;flex:1 1 150px;max-width:240px;
+}
+.search::placeholder{color:var(--faint);letter-spacing:.06em}
+.search:focus{outline:none;border-bottom-color:var(--ink)}
+.btn-clear{
+  font-size:11.5px;font-weight:500;letter-spacing:var(--track);
+  text-transform:uppercase;color:var(--gold);padding:10px 2px;
+}
+.btn-clear:hover{color:var(--ink)}
+.btn-clear[disabled]{color:var(--faint);opacity:.6;cursor:default}
+.btn-clear.alt{color:var(--muted)}
+.btn-clear.alt:hover{color:var(--ink)}
+.btn-clear.alt[disabled]{color:var(--faint)}
+
+.active{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.active:empty{display:none}
+.tag{
+  display:inline-flex;align-items:center;gap:9px;font-size:13px;
+  background:var(--surface);border:1px solid var(--line);padding:5px 9px 5px 12px;
+}
+.tag b{font-weight:500}
+.tag button{font-size:15px;line-height:1;color:var(--faint)}
+.tag button:hover{color:var(--ink)}
+
+/* ---------- status ---------- */
+.status{
+  background:var(--surface);border:1px solid var(--line);
+  padding:46px 24px;text-align:center;font-size:14px;color:var(--muted);
+  letter-spacing:.04em;
+}
+.status b{color:var(--ink);font-weight:500}
+.status.err{border-color:var(--gold)}
+.status textarea{
+  width:100%;max-width:520px;height:104px;margin-top:14px;display:block;
+  margin-left:auto;margin-right:auto;
+  font-family:inherit;font-size:12.5px;border:1px solid var(--line);
+  padding:10px;resize:vertical;color:var(--ink);background:var(--mist);
+}
+.status textarea:focus{outline:none;border-color:var(--ink)}
+.count-line{
+  margin:0 0 16px;display:flex;gap:22px;flex-wrap:wrap;align-items:center;
+  font-size:11.5px;letter-spacing:var(--track);text-transform:uppercase;color:var(--faint);
+}
+.count-line .mono{color:var(--ink);font-weight:600;font-size:14px}
+
+/* ---------- groups ---------- */
+.grp{background:var(--surface);border:1px solid var(--line);margin-bottom:8px}
+.ghead{display:flex;align-items:stretch}
+.grp:not(.closed) .ghead{border-bottom:1px solid var(--hair)}
+.gtoggle{
+  flex:1;display:flex;align-items:center;gap:13px;
+  padding:15px 20px;text-align:left;min-width:0;transition:background .16s;
+}
+.gtoggle:hover{background:var(--mist)}
+.arrow{font-size:8px;color:var(--faint);transition:transform .18s ease;flex:none}
+.grp.closed .arrow{transform:rotate(-90deg)}
+.gcode{
+  flex:none;font-size:14px;font-weight:500;letter-spacing:.15em;
+  text-transform:uppercase;
+}
+.grp.byCode .gcode{color:var(--gold)}
+.gname{
+  font-weight:300;font-size:15.5px;letter-spacing:.04em;color:var(--muted);
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gmeta{
+  margin-left:auto;flex:none;padding-left:10px;
+  font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;
+}
+.gcopy{
+  flex:none;padding:0 20px;border-left:1px solid var(--hair);
+  font-size:11.5px;font-weight:500;letter-spacing:var(--track);
+  text-transform:uppercase;color:var(--faint);transition:color .16s,background .16s;
+}
+.gcopy:hover{color:var(--ink);background:var(--mist)}
+.gcopy.done{color:#fff;background:var(--gold)}
+.gbody{padding:2px 0}
+.grp.closed .gbody{display:none}
+
+.row{display:flex;align-items:center;gap:14px;padding:11px 20px;min-width:0}
+.row+.row{border-top:1px solid var(--hair)}
+.row .code{
+  flex:none;width:68px;font-size:12px;font-weight:500;
+  letter-spacing:.08em;color:var(--faint);
+}
+.row .txt{
+  flex:1;min-width:0;font-size:15.5px;font-weight:400;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.row .where{
+  flex:none;max-width:32%;font-size:11.5px;letter-spacing:var(--track);
+  text-transform:uppercase;color:var(--faint);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.go{
+  flex:none;border:1px solid var(--ink);background:var(--ink);color:#fff;
+  padding:7px 18px;font-size:11.5px;font-weight:500;letter-spacing:var(--track);
+  text-transform:uppercase;text-decoration:none;
+  transition:border-color .16s,color .16s,background .16s;
+}
+.go:hover{background:var(--gold);border-color:var(--gold)}
+.go.seen{background:transparent;border-color:var(--line);color:var(--faint);font-weight:400}
+.go.seen:hover{border-color:var(--muted);color:var(--muted);background:transparent}
+.row.seen .txt,.row.seen .code,.row.seen .where{color:var(--faint)}
+.empty{padding:52px 20px;text-align:center;color:var(--muted);font-size:14px;letter-spacing:.04em}
+.empty button{
+  display:inline-block;margin-top:14px;border:1px solid var(--line);padding:9px 20px;
+  font-size:11.5px;letter-spacing:var(--track);text-transform:uppercase;color:var(--muted);
+}
+.empty button:hover{border-color:var(--ink);color:var(--ink)}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,12px);
+  background:var(--ink);color:#fff;padding:12px 22px;
+  font-size:11.5px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase;
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;z-index:60;
+  max-width:88vw;text-align:center;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:600px){
+  .row .where{display:none}
+  .gtoggle{padding:13px 14px;gap:10px}
+  .gcopy{padding:0 15px}
+  .row{padding:11px 14px;gap:10px}
+  .row .code{width:56px}
+  .mast{padding:40px 0 24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+:focus-visible{outline:1px solid var(--ink);outline-offset:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <h1 class="mark">抽選看板</h1>
+    <div class="rule"></div>
+    <p class="sub" id="src"></p>
+    <button class="btn-ghost" id="reload">重新讀取</button>
+  </header>
+
+  <div class="bar">
+    <div class="bar-row">
+      <div class="seg" role="group" aria-label="排列方式">
+        <button id="mStore" aria-pressed="true">依店名</button>
+        <button id="mCode" aria-pressed="false">依品名</button>
+      </div>
+
+      <div class="drop" id="dCity">
+        <button class="trig" aria-expanded="false">縣市 <span class="n" hidden>0</span><span class="caret">▼</span></button>
+        <div class="panel">
+          <div class="panel-head"><button data-all="city">全選</button><button data-none="city">清空</button></div>
+          <div class="chips" id="cCity"></div>
+        </div>
+      </div>
+
+      <div class="drop" id="dCode">
+        <button class="trig" aria-expanded="false">品項 <span class="n" hidden>0</span><span class="caret">▼</span></button>
+        <div class="panel">
+          <div class="panel-head"><button data-all="code">全選</button><button data-none="code">清空</button></div>
+          <div class="chips" id="cCode"></div>
+        </div>
+      </div>
+
+      <input class="search" id="q" type="search" placeholder="搜尋店名或品名" autocomplete="off">
+      <button class="btn-clear" id="clear" disabled>清除條件</button>
+      <button class="btn-clear alt" id="resetSeen" disabled>重設已點</button>
+    </div>
+    <div class="active" id="active"></div>
+  </div>
+
+  <div id="status" class="status">載入中…</div>
+  <p class="count-line" id="counts" hidden></p>
+  <div id="list"></div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------- storage (degrades to memory if blocked) ---------- */
+const mem = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return k in mem ? mem[k] : null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+};
+const KEY = "funbox-board-v1";
+const VKEY = "funbox-seen-v1";
+
+/* 已經點開過的抽獎連結，用網址當 key */
+let SEEN = new Set();
+try{ SEEN = new Set(JSON.parse(store.get(VKEY)||"[]")); }catch(e){}
+function saveSeen(){ store.set(VKEY, JSON.stringify([...SEEN])); }
+
+/* ---------- state ---------- */
+const S = { cities:new Set(), codes:new Set(), mode:"store", q:"", closed:new Set() };
+let DATA = { stores:[], names:new Map(), cities:[], codes:[] };
+
+function saveState(){
+  store.set(KEY, JSON.stringify({
+    cities:[...S.cities], codes:[...S.codes], mode:S.mode, q:S.q, closed:[...S.closed]
+  }));
+}
+function loadState(){
+  try{
+    const o = JSON.parse(store.get(KEY)||"{}");
+    if(Array.isArray(o.cities)) S.cities = new Set(o.cities);
+    if(Array.isArray(o.codes))  S.codes  = new Set(o.codes);
+    if(o.mode==="code"||o.mode==="store") S.mode = o.mode;
+    if(typeof o.q==="string") S.q = o.q;
+    if(Array.isArray(o.closed)) S.closed = new Set(o.closed);
+  }catch(e){}
+}
+
+/* ---------- source ---------- */
+const SOURCES = [
+  "https://uxux11.github.io/funbox-line/index.html",
+  "https://raw.githubusercontent.com/uxux11/funbox-line/main/index.html",
+  "https://raw.githubusercontent.com/uxux11/funbox-line/master/index.html"
+];
+
+async function load(){
+  const st = document.getElementById("status");
+  st.className = "status"; st.textContent = "載入中…";
+  document.getElementById("counts").hidden = true;
+  document.getElementById("list").innerHTML = "";
+  for(const url of SOURCES){
+    try{
+      const r = await fetch(url, {cache:"no-store"});
+      if(!r.ok) continue;
+      const html = await r.text();
+      const ok = ingest(html);
+      if(ok){
+        document.getElementById("src").textContent =
+          "更新於 " + new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"});
+        st.style.display = "none";
+        render();
+        return;
+      }
+    }catch(e){ /* try next */ }
+  }
+  failed();
+}
+
+function failed(){
+  const st = document.getElementById("status");
+  st.style.display = "";
+  st.className = "status err";
+  st.innerHTML = '<b>讀不到資料。</b>可能是連線暫時中斷，或瀏覽器擋下了這次請求。'+
+    '<br>按「重新讀取」再試一次，或把頁面原始碼貼進來：'+
+    '<textarea id="paste" placeholder="貼上原始碼"></textarea>'+
+    '<button class="btn-ghost" id="usePaste" style="margin-top:8px">用這段原始碼</button>';
+  document.getElementById("usePaste").onclick = ()=>{
+    const html = document.getElementById("paste").value;
+    if(ingest(html)){
+      document.getElementById("src").textContent = "手動載入";
+      st.style.display = "none";
+      render();
+    }else{
+      toast("這段原始碼裡找不到抽選資料");
+    }
+  };
+}
+
+/* ---------- parse ---------- */
+function normCode(raw){
+  const m = raw.match(/^\s*[【\[]?\s*([A-Za-z]{2,4})\s*[-‑–—]?\s*(\d{1,2})/);
+  if(!m) return null;
+  return m[1].toUpperCase() + "-" + m[2].padStart(2,"0");
+}
+function cleanName(raw){
+  let s = raw.replace(/^\s*[🎉✨]*\s*/,"").trim();
+  s = s.replace(/^[【\[]?\s*[A-Za-z]{2,4}\s*[-‑–—]?\s*\d{1,2}\s*[】\]]?\s*[-–—:：、.]?\s*/,"");
+  s = s.replace(/\s*[-–—]?\s*(原價)?\s*[$＄]?\s*\d{3,4}\s*元?\s*$/,"");
+  s = s.replace(/^[【\[]|[】\]]$/g,"").trim();
+  return s || raw.trim();
+}
+
+function ingest(html){
+  let doc;
+  try{ doc = new DOMParser().parseFromString(html,"text/html"); }catch(e){ return false; }
+  const nodes = doc.querySelectorAll(".draw-store");
+  if(!nodes.length) return false;
+
+  const stores = [], names = new Map(), cities = [], codeSet = new Map();
+  nodes.forEach((n,i)=>{
+    const city = n.getAttribute("data-draw-city") || "其他";
+    const name = (n.querySelector(".draw-store-name")||{}).textContent || "未命名門市";
+    const time = (n.querySelector(".draw-start")||{}).textContent || "";
+    const items = [];
+    n.querySelectorAll(".draw-item").forEach(it=>{
+      const raw = ((it.querySelector(".draw-product")||{}).textContent||"").trim();
+      const a = it.querySelector("a[href]");
+      if(!raw || !a) return;
+      const code = normCode(raw) || "其他";
+      const nm = cleanName(raw);
+      if(!names.has(code)) names.set(code, nm);
+      codeSet.set(code, (codeSet.get(code)||0)+1);
+      items.push({ code, raw, name:nm, url:a.getAttribute("href") });
+    });
+    if(!items.length) return;
+    if(!cities.includes(city)) cities.push(city);
+    stores.push({ id:"s"+i, city, name:name.trim(), time:time.trim(), items });
+  });
+  if(!stores.length) return false;
+
+  const codes = [...codeSet.keys()].sort((a,b)=>{
+    const [pa,na]=a.split("-"), [pb,nb]=b.split("-");
+    return pa===pb ? (+na)-(+nb) : pa.localeCompare(pb);
+  });
+  DATA = { stores, names, cities, codes, codeCount:codeSet };
+  buildChips();
+  return true;
+}
+
+/* ---------- filter chips ---------- */
+function buildChips(){
+  const cityCount = new Map();
+  DATA.stores.forEach(s=>cityCount.set(s.city,(cityCount.get(s.city)||0)+1));
+
+  document.getElementById("cCity").innerHTML = DATA.cities.map(c=>
+    `<button class="chip" data-kind="city" data-v="${esc(c)}"><span>${esc(c)}</span><span class="k">${cityCount.get(c)||0}</span></button>`
+  ).join("");
+
+  document.getElementById("cCode").innerHTML = DATA.codes.map(c=>
+    `<button class="chip" data-kind="code" data-v="${esc(c)}"><span class="c">${esc(c)}</span><span>${esc(DATA.names.get(c)||"")}</span><span class="k">${DATA.codeCount.get(c)||0}</span></button>`
+  ).join("");
+
+  // drop values that no longer exist in the source
+  [...S.cities].forEach(v=>{ if(!DATA.cities.includes(v)) S.cities.delete(v); });
+  [...S.codes].forEach(v=>{ if(!DATA.codes.includes(v)) S.codes.delete(v); });
+}
+
+/* ---------- render ---------- */
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+function visibleStores(){
+  const q = S.q.trim().toLowerCase();
+  const out = [];
+  DATA.stores.forEach(s=>{
+    if(S.cities.size && !S.cities.has(s.city)) return;
+    const storeHit = q && (s.name.toLowerCase().includes(q) || s.city.toLowerCase().includes(q));
+    const items = s.items.filter(it=>{
+      if(S.codes.size && !S.codes.has(it.code)) return false;
+      if(q && !storeHit && !(it.raw.toLowerCase().includes(q) || it.code.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    if(items.length) out.push({...s, items});
+  });
+  return out;
+}
+
+function render(){
+  syncControls();
+  const list = document.getElementById("list");
+  const stores = visibleStores();
+  const linkCount = stores.reduce((n,s)=>n+s.items.length,0);
+
+  const counts = document.getElementById("counts");
+  counts.hidden = false;
+  counts.innerHTML = S.mode==="store"
+    ? `<span><span class="mono">${stores.length}</span> 家門市</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`
+    : `<span><span class="mono">${new Set(stores.flatMap(s=>s.items.map(i=>i.code))).size}</span> 個品項</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`;
+
+  if(!linkCount){
+    list.innerHTML = `<div class="grp"><div class="empty">目前的條件沒有符合的品項。<br><button id="emptyClear">清除條件</button></div></div>`;
+    document.getElementById("emptyClear").onclick = clearAll;
+    return;
+  }
+
+  list.innerHTML = S.mode==="store" ? byStore(stores) : byCode(stores);
+  wireGroups();
+}
+
+function byStore(stores){
+  const groups = {};
+  stores.forEach(s=>{ (groups[s.city] ||= []).push(s); });
+  return DATA.cities.filter(c=>groups[c]).map(city=>
+    groups[city].map(s=>{
+      const key = "s:"+s.id, open = !S.closed.has(key);
+      return `<section class="grp ${open?"":"closed"}" data-key="${esc(key)}">
+        <div class="ghead">
+          <button class="gtoggle" aria-expanded="${open}">
+            <span class="arrow">▼</span>
+            <span class="gcode">${esc(city)}</span>
+            <span class="gname">${esc(s.name)}</span>
+            <span class="gmeta">${s.items.length}</span>
+          </button>
+          <button class="gcopy" data-copy="store">複製</button>
+        </div>
+        <div class="gbody">
+          ${s.items.map(it=>`<div class="row${SEEN.has(it.url)?" seen":""}">
+            <span class="code">${esc(it.code)}</span>
+            <span class="txt">${esc(it.name)}</span>
+            <a class="go${SEEN.has(it.url)?" seen":""}" href="${esc(it.url)}" target="_blank" rel="noopener">抽獎</a>
+          </div>`).join("")}
+        </div>
+      </section>`;
+    }).join("")
+  ).join("");
+}
+
+function byCode(stores){
+  const bag = new Map();
+  stores.forEach(s=>s.items.forEach(it=>{
+    if(!bag.has(it.code)) bag.set(it.code,[]);
+    bag.get(it.code).push({store:s.name, city:s.city, url:it.url});
+  }));
+  return DATA.codes.filter(c=>bag.has(c)).map(code=>{
+    const rows = bag.get(code), key = "c:"+code, open = !S.closed.has(key);
+    return `<section class="grp byCode ${open?"":"closed"}" data-key="${esc(key)}">
+      <div class="ghead">
+        <button class="gtoggle" aria-expanded="${open}">
+          <span class="arrow">▼</span>
+          <span class="gcode">${esc(code)}</span>
+          <span class="gname">${esc(DATA.names.get(code)||"")}</span>
+          <span class="gmeta">${rows.length}</span>
+        </button>
+        <button class="gcopy" data-copy="code">複製</button>
+      </div>
+      <div class="gbody">
+        ${rows.map(r=>`<div class="row${SEEN.has(r.url)?" seen":""}">
+          <span class="txt">${esc(r.store)}</span>
+          <span class="where">${esc(r.city)}</span>
+          <a class="go${SEEN.has(r.url)?" seen":""}" href="${esc(r.url)}" target="_blank" rel="noopener">抽獎</a>
+        </div>`).join("")}
+      </div>
+    </section>`;
+  }).join("");
+}
+
+/* ---------- group interactions ---------- */
+function wireGroups(){
+  document.querySelectorAll(".grp").forEach(g=>{
+    const key = g.dataset.key;
+    g.querySelector(".gtoggle").onclick = ()=>{
+      const closed = g.classList.toggle("closed");
+      g.querySelector(".gtoggle").setAttribute("aria-expanded", String(!closed));
+      closed ? S.closed.add(key) : S.closed.delete(key);
+      saveState();
+    };
+    g.querySelector(".gcopy").onclick = e=>{
+      const rows = [...g.querySelectorAll(".row")];
+      let text;
+      if(g.querySelector(".gcopy").dataset.copy === "store"){
+        text = rows.map(r=>
+          r.querySelector(".code").textContent + " " + r.querySelector(".txt").textContent +
+          "\n" + r.querySelector(".go").getAttribute("href")
+        ).join("\n\n");
+      }else{
+        const title = g.querySelector(".gcode").textContent + " " + g.querySelector(".gname").textContent;
+        text = title + "\n" + rows.map(r=>r.querySelector(".go").getAttribute("href")).join("\n");
+      }
+      copy(text, e.currentTarget, rows.length);
+    };
+  });
+}
+
+function copy(text, btn, n){
+  const done = ()=>{
+    btn.classList.add("done"); btn.textContent = "已複製";
+    setTimeout(()=>{ btn.classList.remove("done"); btn.textContent = "複製"; }, 1400);
+    toast("已複製 " + n + " 條連結");
+  };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(done).catch(()=>legacy(text,done));
+  }else legacy(text,done);
+}
+function legacy(text, done){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.cssText = "position:fixed;top:-1000px;left:0;opacity:0";
+  document.body.appendChild(ta); ta.select();
+  let ok=false; try{ ok = document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+  ok ? done() : toast("瀏覽器擋下複製，請手動選取");
+}
+let tTimer;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(tTimer); tTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+
+/* ---------- controls ---------- */
+function syncControls(){
+  document.getElementById("mStore").setAttribute("aria-pressed", String(S.mode==="store"));
+  document.getElementById("mCode").setAttribute("aria-pressed", String(S.mode==="code"));
+  document.getElementById("q").value = S.q;
+
+  setCount("dCity", S.cities.size);
+  setCount("dCode", S.codes.size);
+  document.querySelectorAll(".chip").forEach(ch=>{
+    const set = ch.dataset.kind==="city" ? S.cities : S.codes;
+    ch.setAttribute("aria-pressed", String(set.has(ch.dataset.v)));
+  });
+
+  const any = S.cities.size || S.codes.size || S.q.trim();
+  document.getElementById("clear").disabled = !any;
+  document.getElementById("resetSeen").disabled = !SEEN.size;
+
+  const act = document.getElementById("active");
+  act.innerHTML = [
+    ...[...S.cities].map(v=>tag("city",v,v)),
+    ...[...S.codes].map(v=>tag("code",v,v+" "+(DATA.names.get(v)||"")))
+  ].join("");
+  act.querySelectorAll("button").forEach(b=>{
+    b.onclick = ()=>{ (b.dataset.kind==="city"?S.cities:S.codes).delete(b.dataset.v); saveState(); render(); };
+  });
+}
+function tag(kind,v,label){
+  return `<span class="tag"><b>${esc(label)}</b><button data-kind="${kind}" data-v="${esc(v)}" aria-label="移除 ${esc(label)}">×</button></span>`;
+}
+function setCount(id,n){
+  const el = document.querySelector("#"+id+" .n");
+  el.textContent = n; el.hidden = !n;
+}
+function clearAll(){
+  S.cities.clear(); S.codes.clear(); S.q = "";
+  saveState(); render();
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("mStore").onclick = ()=>{ S.mode="store"; saveState(); render(); };
+document.getElementById("mCode").onclick  = ()=>{ S.mode="code";  saveState(); render(); };
+document.getElementById("clear").onclick  = clearAll;
+document.getElementById("reload").onclick = load;
+document.getElementById("resetSeen").onclick = ()=>{
+  if(!SEEN.size) return;
+  const n = SEEN.size;
+  SEEN.clear(); saveSeen(); render();
+  toast("已重設 " + n + " 筆點選紀錄");
+};
+
+let qTimer;
+document.getElementById("q").oninput = e=>{
+  S.q = e.target.value;
+  clearTimeout(qTimer); qTimer = setTimeout(()=>{ saveState(); render(); }, 160);
+};
+
+document.querySelectorAll(".drop").forEach(d=>{
+  const trig = d.querySelector(".trig");
+  trig.onclick = e=>{
+    e.stopPropagation();
+    const on = d.classList.contains("on");
+    document.querySelectorAll(".drop").forEach(x=>{ x.classList.remove("on"); x.querySelector(".trig").setAttribute("aria-expanded","false"); });
+    if(!on){ d.classList.add("on"); trig.setAttribute("aria-expanded","true"); }
+  };
+});
+document.addEventListener("click", e=>{
+  if(e.target.closest(".drop")) return;   // keep the panel open while picking
+  document.querySelectorAll(".drop").forEach(x=>{ x.classList.remove("on"); x.querySelector(".trig").setAttribute("aria-expanded","false"); });
+});
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") document.querySelectorAll(".drop").forEach(x=>x.classList.remove("on")); });
+
+document.addEventListener("click", e=>{
+  const go = e.target.closest(".go");
+  if(go){
+    SEEN.add(go.getAttribute("href"));
+    go.classList.add("seen");
+    const row = go.closest(".row"); if(row) row.classList.add("seen");
+    saveSeen();
+    document.getElementById("resetSeen").disabled = false;
+  }
+  const chip = e.target.closest(".chip");
+  if(chip){
+    const set = chip.dataset.kind==="city" ? S.cities : S.codes;
+    set.has(chip.dataset.v) ? set.delete(chip.dataset.v) : set.add(chip.dataset.v);
+    saveState(); render(); return;
+  }
+  const all = e.target.closest("[data-all]"), none = e.target.closest("[data-none]");
+  if(all){
+    const k = all.dataset.all;
+    (k==="city" ? DATA.cities : DATA.codes).forEach(v=>(k==="city"?S.cities:S.codes).add(v));
+    saveState(); render();
+  }
+  if(none){
+    (none.dataset.none==="city" ? S.cities : S.codes).clear();
+    saveState(); render();
+  }
+});
+
+loadState();
+load();
+</script>
+</body>
+</html>
