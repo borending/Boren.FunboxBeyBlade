@@ -137,8 +137,21 @@ a{color:inherit}
 .btn-clear.alt:hover{color:var(--ink)}
 .btn-clear.alt[disabled]{color:var(--faint)}
 
-.active{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
-.active:empty{display:none}
+.active-wrap{margin-top:13px}
+.active-toggle{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:11.5px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase;
+  color:var(--muted);padding:4px 2px;
+}
+.active-toggle:hover{color:var(--ink)}
+.active-toggle .n{
+  font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--gold);
+  border:1px solid var(--gold);border-radius:99px;padding:0 7px;line-height:16px;
+}
+.active-toggle .caret{font-size:8px;color:var(--faint);transition:transform .18s ease}
+.active-wrap.open .active-toggle .caret{transform:rotate(180deg)}
+.active{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.active-wrap:not(.open) .active{display:none}
 .tag{
   display:inline-flex;align-items:center;gap:9px;font-size:13px;
   background:var(--surface);border:1px solid var(--line);padding:5px 9px 5px 12px;
@@ -293,7 +306,12 @@ a{color:inherit}
       <button class="btn-clear" id="clear" disabled>清除條件</button>
       <button class="btn-clear alt" id="resetSeen" disabled>重設已點</button>
     </div>
-    <div class="active" id="active"></div>
+    <div class="active-wrap" id="activeWrap" hidden>
+      <button class="active-toggle" id="activeToggle" aria-expanded="false">
+        <span>已選條件</span><span class="n" id="activeCount">0</span><span class="caret">▾</span>
+      </button>
+      <div class="active" id="active"></div>
+    </div>
   </div>
 
   <div id="status" class="status">載入中…</div>
@@ -633,13 +651,19 @@ function syncControls(){
   document.getElementById("resetSeen").disabled = !SEEN.size;
 
   const act = document.getElementById("active");
-  act.innerHTML = [
+  const tags = [
     ...[...S.cities].map(v=>tag("city",v,v)),
     ...[...S.codes].map(v=>tag("code",v,v.split("::")[0]+" "+(DATA.names.get(v)||"")))
-  ].join("");
+  ];
+  act.innerHTML = tags.join("");
   act.querySelectorAll("button").forEach(b=>{
     b.onclick = ()=>{ (b.dataset.kind==="city"?S.cities:S.codes).delete(b.dataset.v); saveState(); render(); };
   });
+
+  const wrap = document.getElementById("activeWrap");
+  wrap.hidden = !tags.length;
+  document.getElementById("activeCount").textContent = tags.length;
+  if(!tags.length) wrap.classList.remove("open");
 }
 function tag(kind,v,label){
   return `<span class="tag"><b>${esc(label)}</b><button data-kind="${kind}" data-v="${esc(v)}" aria-label="移除 ${esc(label)}">×</button></span>`;
@@ -658,6 +682,11 @@ document.getElementById("mStore").onclick = ()=>{ S.mode="store"; saveState(); r
 document.getElementById("mCode").onclick  = ()=>{ S.mode="code";  saveState(); render(); };
 document.getElementById("clear").onclick  = clearAll;
 document.getElementById("reload").onclick = load;
+document.getElementById("activeToggle").onclick = ()=>{
+  const wrap = document.getElementById("activeWrap");
+  const open = wrap.classList.toggle("open");
+  document.getElementById("activeToggle").setAttribute("aria-expanded", String(open));
+};
 document.getElementById("resetSeen").onclick = ()=>{
   if(!SEEN.size) return;
   const n = SEEN.size;
