@@ -423,9 +423,11 @@ function ingest(html){
       if(!raw || !a) return;
       const code = normCode(raw) || "其他";
       const nm = cleanName(raw);
-      if(!names.has(code)) names.set(code, nm);
-      codeSet.set(code, (codeSet.get(code)||0)+1);
-      items.push({ code, raw, name:nm, url:a.getAttribute("href") });
+      // 代號本身不是唯一值（不同商品可能共用同一代號），加上商品名前兩字組成唯一鍵
+      const key = code + "::" + nm.slice(0,2);
+      if(!names.has(key)) names.set(key, nm);
+      codeSet.set(key, (codeSet.get(key)||0)+1);
+      items.push({ code, key, raw, name:nm, url:a.getAttribute("href") });
     });
     if(!items.length) return;
     if(!cities.includes(city)) cities.push(city);
@@ -434,8 +436,11 @@ function ingest(html){
   if(!stores.length) return false;
 
   const codes = [...codeSet.keys()].sort((a,b)=>{
-    const [pa,na]=a.split("-"), [pb,nb]=b.split("-");
-    return pa===pb ? (+na)-(+nb) : pa.localeCompare(pb);
+    const [ca,nma]=a.split("::"), [cb,nmb]=b.split("::");
+    const [pa,na]=ca.split("-"), [pb,nb]=cb.split("-");
+    if(pa!==pb) return pa.localeCompare(pb);
+    if(na!==nb) return (+na)-(+nb);
+    return nma.localeCompare(nmb);
   });
   DATA = { stores, names, cities, codes, codeCount:codeSet };
   buildChips();
@@ -452,7 +457,7 @@ function buildChips(){
   ).join("");
 
   document.getElementById("cCode").innerHTML = DATA.codes.map(c=>
-    `<button class="chip" data-kind="code" data-v="${esc(c)}"><span class="c">${esc(c)}</span><span>${esc(DATA.names.get(c)||"")}</span><span class="k">${DATA.codeCount.get(c)||0}</span></button>`
+    `<button class="chip" data-kind="code" data-v="${esc(c)}"><span class="c">${esc(c.split("::")[0])}</span><span>${esc(DATA.names.get(c)||"")}</span><span class="k">${DATA.codeCount.get(c)||0}</span></button>`
   ).join("");
 
   // drop values that no longer exist in the source
@@ -470,7 +475,7 @@ function visibleStores(){
     if(S.cities.size && !S.cities.has(s.city)) return;
     const storeHit = q && (s.name.toLowerCase().includes(q) || s.city.toLowerCase().includes(q));
     const items = s.items.filter(it=>{
-      if(S.codes.size && !S.codes.has(it.code)) return false;
+      if(S.codes.size && !S.codes.has(it.key)) return false;
       if(q && !storeHit && !(it.raw.toLowerCase().includes(q) || it.code.toLowerCase().includes(q))) return false;
       return true;
     });
@@ -489,7 +494,7 @@ function render(){
   counts.hidden = false;
   counts.innerHTML = S.mode==="store"
     ? `<span><span class="mono">${stores.length}</span> 家門市</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`
-    : `<span><span class="mono">${new Set(stores.flatMap(s=>s.items.map(i=>i.code))).size}</span> 個品項</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`;
+    : `<span><span class="mono">${new Set(stores.flatMap(s=>s.items.map(i=>i.key))).size}</span> 個品項</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`;
 
   if(!linkCount){
     list.innerHTML = `<div class="grp"><div class="empty">目前的條件沒有符合的品項。<br><button id="emptyClear">清除條件</button></div></div>`;
@@ -532,17 +537,17 @@ function byStore(stores){
 function byCode(stores){
   const bag = new Map();
   stores.forEach(s=>s.items.forEach(it=>{
-    if(!bag.has(it.code)) bag.set(it.code,[]);
-    bag.get(it.code).push({store:s.name, city:s.city, url:it.url});
+    if(!bag.has(it.key)) bag.set(it.key,[]);
+    bag.get(it.key).push({store:s.name, city:s.city, url:it.url});
   }));
-  return DATA.codes.filter(c=>bag.has(c)).map(code=>{
-    const rows = bag.get(code), key = "c:"+code, open = !S.closed.has(key);
-    return `<section class="grp byCode ${open?"":"closed"}" data-key="${esc(key)}">
+  return DATA.codes.filter(k=>bag.has(k)).map(itemKey=>{
+    const rows = bag.get(itemKey), gkey = "c:"+itemKey, open = !S.closed.has(gkey);
+    return `<section class="grp byCode ${open?"":"closed"}" data-key="${esc(gkey)}">
       <div class="ghead">
         <button class="gtoggle" aria-expanded="${open}">
           <span class="arrow">▼</span>
-          <span class="gcode">${esc(code)}</span>
-          <span class="gname">${esc(DATA.names.get(code)||"")}</span>
+          <span class="gcode">${esc(itemKey.split("::")[0])}</span>
+          <span class="gname">${esc(DATA.names.get(itemKey)||"")}</span>
           <span class="gmeta">${rows.length}</span>
         </button>
         <button class="gcopy" data-copy="code">複製</button>
@@ -630,7 +635,7 @@ function syncControls(){
   const act = document.getElementById("active");
   act.innerHTML = [
     ...[...S.cities].map(v=>tag("city",v,v)),
-    ...[...S.codes].map(v=>tag("code",v,v+" "+(DATA.names.get(v)||"")))
+    ...[...S.codes].map(v=>tag("code",v,v.split("::")[0]+" "+(DATA.names.get(v)||"")))
   ].join("");
   act.querySelectorAll("button").forEach(b=>{
     b.onclick = ()=>{ (b.dataset.kind==="city"?S.cities:S.codes).delete(b.dataset.v); saveState(); render(); };
