@@ -39,7 +39,7 @@ a{color:inherit}
 .wrap{max-width:1000px;margin:0 auto;padding:0 var(--pad) 110px}
 
 /* ---------- masthead ---------- */
-.mast{text-align:center;padding:54px 0 30px}
+.mast{text-align:center;padding:40px 0 24px}
 .mark{
   margin:0;font-size:clamp(20px,4vw,26px);font-weight:300;
   letter-spacing:.42em;text-indent:.42em;line-height:1.2;
@@ -176,18 +176,20 @@ a{color:inherit}
 }
 .status textarea:focus{outline:none;border-color:var(--ink)}
 .count-line{
-  margin:0 0 16px;display:flex;gap:22px;flex-wrap:wrap;align-items:center;
+  margin:0 0 16px;display:flex;gap:12px 22px;flex-wrap:wrap;align-items:center;justify-content:space-between;
   font-size:11.5px;letter-spacing:var(--track);text-transform:uppercase;color:var(--faint);
 }
+.count-line .stats{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
 .count-line .mono{color:var(--ink);font-weight:600;font-size:14px}
+.count-actions{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
 
 /* ---------- groups ---------- */
 .grp{background:var(--surface);border:1px solid var(--line);margin-bottom:8px}
 .ghead{display:flex;align-items:stretch}
 .grp:not(.closed) .ghead{border-bottom:1px solid var(--hair)}
 .gtoggle{
-  flex:1;display:flex;align-items:center;gap:13px;
-  padding:15px 20px;text-align:left;min-width:0;transition:background .16s;
+  flex:1;display:flex;align-items:center;gap:10px;
+  padding:13px 14px;text-align:left;min-width:0;transition:background .16s;
 }
 .gtoggle:hover{background:var(--mist)}
 .arrow{font-size:8px;color:var(--faint);transition:transform .18s ease;flex:none}
@@ -206,7 +208,7 @@ a{color:inherit}
   font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;
 }
 .gcopy{
-  flex:none;padding:0 20px;border-left:1px solid var(--hair);
+  flex:none;padding:0 15px;border-left:1px solid var(--hair);
   font-size:11.5px;font-weight:500;letter-spacing:var(--track);
   text-transform:uppercase;color:var(--faint);transition:color .16s,background .16s;
 }
@@ -215,10 +217,10 @@ a{color:inherit}
 .gbody{padding:2px 0}
 .grp.closed .gbody{display:none}
 
-.row{display:flex;align-items:center;gap:14px;padding:11px 20px;min-width:0}
+.row{display:flex;align-items:center;gap:10px;padding:11px 14px;min-width:0}
 .row+.row{border-top:1px solid var(--hair)}
 .row .code{
-  flex:none;width:68px;font-size:12px;font-weight:500;
+  flex:none;width:56px;font-size:12px;font-weight:500;
   letter-spacing:.08em;color:var(--faint);
 }
 .row .txt{
@@ -226,6 +228,7 @@ a{color:inherit}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .row .where{
+  display:none;
   flex:none;max-width:32%;font-size:11.5px;letter-spacing:var(--track);
   text-transform:uppercase;color:var(--faint);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -257,13 +260,14 @@ a{color:inherit}
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
-@media (max-width:600px){
-  .row .where{display:none}
-  .gtoggle{padding:13px 14px;gap:10px}
-  .gcopy{padding:0 15px}
-  .row{padding:11px 14px;gap:10px}
-  .row .code{width:56px}
-  .mast{padding:40px 0 24px}
+/* enhancements for wider viewports — base styles above are mobile-first */
+@media (min-width:601px){
+  .mast{padding:54px 0 30px}
+  .gtoggle{padding:15px 20px;gap:13px}
+  .gcopy{padding:0 20px}
+  .row{padding:11px 20px;gap:14px}
+  .row .code{width:68px}
+  .row .where{display:block}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 :focus-visible{outline:1px solid var(--ink);outline-offset:3px}
@@ -304,7 +308,6 @@ a{color:inherit}
 
       <input class="search" id="q" type="search" placeholder="搜尋店名或品名" autocomplete="off">
       <button class="btn-clear" id="clear" disabled>清除條件</button>
-      <button class="btn-clear alt" id="resetSeen" disabled>重設已點</button>
     </div>
     <div class="active-wrap" id="activeWrap" hidden>
       <button class="active-toggle" id="activeToggle" aria-expanded="false">
@@ -315,7 +318,13 @@ a{color:inherit}
   </div>
 
   <div id="status" class="status">載入中…</div>
-  <p class="count-line" id="counts" hidden></p>
+  <div class="count-line" id="counts" hidden>
+    <div class="stats" id="statsText"></div>
+    <div class="count-actions">
+      <button class="btn-clear alt" id="resetSeen" disabled>重設已點</button>
+      <button class="btn-clear alt" id="toggleAll" disabled>全部收合</button>
+    </div>
+  </div>
   <div id="list"></div>
 
 </div>
@@ -438,14 +447,15 @@ function ingest(html){
     n.querySelectorAll(".draw-item").forEach(it=>{
       const raw = ((it.querySelector(".draw-product")||{}).textContent||"").trim();
       const a = it.querySelector("a[href]");
-      if(!raw || !a) return;
+      const url = a ? a.getAttribute("href") : it.getAttribute("data-draw-href");
+      if(!raw || !url) return;
       const code = normCode(raw) || "其他";
       const nm = cleanName(raw);
       // 代號本身不是唯一值（不同商品可能共用同一代號），加上商品名前兩字組成唯一鍵
       const key = code + "::" + nm.slice(0,2);
       if(!names.has(key)) names.set(key, nm);
       codeSet.set(key, (codeSet.get(key)||0)+1);
-      items.push({ code, key, raw, name:nm, url:a.getAttribute("href") });
+      items.push({ code, key, raw, name:nm, url });
     });
     if(!items.length) return;
     if(!cities.includes(city)) cities.push(city);
@@ -502,15 +512,20 @@ function visibleStores(){
   return out;
 }
 
+function groupKeys(stores){
+  return S.mode==="store"
+    ? stores.map(s=>"s:"+s.id)
+    : [...new Set(stores.flatMap(s=>s.items.map(it=>it.key)))].map(k=>"c:"+k);
+}
+
 function render(){
-  syncControls();
   const list = document.getElementById("list");
   const stores = visibleStores();
   const linkCount = stores.reduce((n,s)=>n+s.items.length,0);
+  syncControls(stores);
 
-  const counts = document.getElementById("counts");
-  counts.hidden = false;
-  counts.innerHTML = S.mode==="store"
+  document.getElementById("counts").hidden = false;
+  document.getElementById("statsText").innerHTML = S.mode==="store"
     ? `<span><span class="mono">${stores.length}</span> 家門市</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`
     : `<span><span class="mono">${new Set(stores.flatMap(s=>s.items.map(i=>i.key))).size}</span> 個品項</span><span><span class="mono">${linkCount}</span> 條抽獎連結</span>`;
 
@@ -634,7 +649,7 @@ function toast(msg){
 }
 
 /* ---------- controls ---------- */
-function syncControls(){
+function syncControls(stores){
   document.getElementById("mStore").setAttribute("aria-pressed", String(S.mode==="store"));
   document.getElementById("mCode").setAttribute("aria-pressed", String(S.mode==="code"));
   document.getElementById("q").value = S.q;
@@ -649,6 +664,11 @@ function syncControls(){
   const any = S.cities.size || S.codes.size || S.q.trim();
   document.getElementById("clear").disabled = !any;
   document.getElementById("resetSeen").disabled = !SEEN.size;
+
+  const keys = groupKeys(stores);
+  const toggleAll = document.getElementById("toggleAll");
+  toggleAll.disabled = !keys.length;
+  toggleAll.textContent = keys.length && keys.every(k=>S.closed.has(k)) ? "全部展開" : "全部收合";
 
   const act = document.getElementById("active");
   const tags = [
@@ -692,6 +712,13 @@ document.getElementById("resetSeen").onclick = ()=>{
   const n = SEEN.size;
   SEEN.clear(); saveSeen(); render();
   toast("已重設 " + n + " 筆點選紀錄");
+};
+document.getElementById("toggleAll").onclick = ()=>{
+  const keys = groupKeys(visibleStores());
+  if(!keys.length) return;
+  const collapse = !keys.every(k=>S.closed.has(k));
+  keys.forEach(k=> collapse ? S.closed.add(k) : S.closed.delete(k));
+  saveState(); render();
 };
 
 let qTimer;
