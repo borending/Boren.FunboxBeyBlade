@@ -119,6 +119,20 @@ a{color:inherit}
 .chip[aria-pressed="true"] .c{color:rgba(255,255,255,.72)}
 .chip .k{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
 .chip[aria-pressed="true"] .k{color:rgba(255,255,255,.5)}
+.chip .r{font-size:12px;font-weight:600;color:var(--gold)}
+.chip[aria-pressed="true"] .r{color:#fff}
+
+/* 優先品項清單（排序面板上方） */
+.plist:not(:empty){border:1px solid var(--line);margin-bottom:14px}
+.prow{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px;font-size:14px}
+.prow+.prow{border-top:1px solid var(--hair)}
+.prow .pr{flex:none;color:var(--gold);font-weight:600}
+.prow .pc{flex:none;font-size:12px;font-weight:500;letter-spacing:.09em;color:var(--muted)}
+.prow .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow.gone .pn,.prow.gone .pc,.prow.gone .pr{color:var(--faint)}
+.prow button{flex:none;width:30px;height:30px;color:var(--muted);border:1px solid var(--line)}
+.prow button:hover{border-color:var(--ink);color:var(--ink)}
+.prow button[disabled]{color:var(--faint);opacity:.5;cursor:default;border-color:var(--line)}
 
 .search{
   border:0;border-bottom:1px solid var(--line);background:transparent;
@@ -306,6 +320,15 @@ a{color:inherit}
         </div>
       </div>
 
+      <div class="drop" id="dSort">
+        <button class="trig" aria-expanded="false">排序 <span class="n" hidden>0</span><span class="caret">▼</span></button>
+        <div class="panel">
+          <div class="panel-head"><button data-prio-clear>清空</button></div>
+          <div class="plist" id="prioList"></div>
+          <div class="chips" id="cSort"></div>
+        </div>
+      </div>
+
       <input class="search" id="q" type="search" placeholder="搜尋店名或品名" autocomplete="off">
       <button class="btn-clear" id="clear" disabled>清除條件</button>
     </div>
@@ -321,6 +344,7 @@ a{color:inherit}
   <div class="count-line" id="counts" hidden>
     <div class="stats" id="statsText"></div>
     <div class="count-actions">
+      <button class="btn-clear" id="copyAll" disabled>複製全部 0</button>
       <button class="btn-clear alt" id="resetSeen" disabled>重設已點</button>
       <button class="btn-clear alt" id="toggleAll" disabled>全部收合</button>
     </div>
@@ -349,12 +373,14 @@ try{ SEEN = new Set(JSON.parse(store.get(VKEY)||"[]")); }catch(e){}
 function saveSeen(){ store.set(VKEY, JSON.stringify([...SEEN])); }
 
 /* ---------- state ---------- */
-const S = { cities:new Set(), codes:new Set(), mode:"store", q:"", closed:new Set() };
+/* prio：優先品項（有序的品項鍵），prioNames：記下完整名稱，來源暫時沒有時仍能顯示 */
+const S = { cities:new Set(), codes:new Set(), mode:"store", q:"", closed:new Set(), prio:[], prioNames:{} };
 let DATA = { stores:[], names:new Map(), cities:[], codes:[] };
 
 function saveState(){
   store.set(KEY, JSON.stringify({
-    cities:[...S.cities], codes:[...S.codes], mode:S.mode, q:S.q, closed:[...S.closed]
+    cities:[...S.cities], codes:[...S.codes], mode:S.mode, q:S.q, closed:[...S.closed],
+    prio:S.prio, prioNames:S.prioNames
   }));
 }
 function loadState(){
@@ -365,8 +391,15 @@ function loadState(){
     if(o.mode==="code"||o.mode==="store") S.mode = o.mode;
     if(typeof o.q==="string") S.q = o.q;
     if(Array.isArray(o.closed)) S.closed = new Set(o.closed);
+    if(Array.isArray(o.prio)) S.prio = [...new Set(o.prio.filter(k=>typeof k==="string"))];
+    if(o.prioNames && typeof o.prioNames==="object") S.prioNames = o.prioNames;
   }catch(e){}
 }
+
+/* 優先名次：不在清單裡的品項排最後 */
+function rank(key){ const i = S.prio.indexOf(key); return i<0 ? Infinity : i; }
+function byRank(ra, rb){ return ra<rb ? -1 : ra>rb ? 1 : 0; }   // Infinity-Infinity 會是 NaN，不能用減法
+function prioName(key){ return DATA.names.get(key) || S.prioNames[key] || key.split("::")[1] || ""; }
 
 /* ---------- source ---------- */
 const SOURCES = [
@@ -488,7 +521,11 @@ function buildChips(){
     `<button class="chip" data-kind="code" data-v="${esc(c)}"><span class="c">${esc(c.split("::")[0])}</span><span>${esc(DATA.names.get(c)||"")}</span><span class="k">${DATA.codeCount.get(c)||0}</span></button>`
   ).join("");
 
-  // drop values that no longer exist in the source
+  document.getElementById("cSort").innerHTML = DATA.codes.map(c=>
+    `<button class="chip" data-kind="prio" data-v="${esc(c)}"><span class="r"></span><span class="c">${esc(c.split("::")[0])}</span><span>${esc(DATA.names.get(c)||"")}</span></button>`
+  ).join("");
+
+  // drop values that no longer exist in the source（優先品項刻意保留）
   [...S.cities].forEach(v=>{ if(!DATA.cities.includes(v)) S.cities.delete(v); });
   [...S.codes].forEach(v=>{ if(!DATA.codes.includes(v)) S.codes.delete(v); });
 }
@@ -535,15 +572,40 @@ function render(){
     return;
   }
 
-  list.innerHTML = S.mode==="store" ? byStore(stores) : byCode(stores);
+  list.innerHTML = S.mode==="store" ? byStore(storeView(stores)) : byCode(codeView(stores));
   wireGroups();
 }
 
-function byStore(stores){
+/* 畫面順序的單一來源：畫面與「複製全部」都從這裡取，保證順序一致。
+   只排序、不篩選；排序都是穩定的，沒有優先品項時就是原本的順序。 */
+function storeView(stores){
+  const ranked = stores.map(s=>{
+    const items = s.items.map(it=>({it, r:rank(it.key)}))
+      .sort((a,b)=>byRank(a.r,b.r)).map(x=>x.it);
+    return {...s, items, best:Math.min(...items.map(it=>rank(it.key)))};
+  });
   const groups = {};
-  stores.forEach(s=>{ (groups[s.city] ||= []).push(s); });
-  return DATA.cities.filter(c=>groups[c]).map(city=>
-    groups[city].map(s=>{
+  ranked.forEach(s=>{ (groups[s.city] ||= []).push(s); });
+  return DATA.cities.filter(c=>groups[c]).map(city=>{
+    const list = groups[city].sort((a,b)=>byRank(a.best,b.best));
+    return { city, stores:list, best:list[0].best };
+  }).sort((a,b)=>byRank(a.best,b.best));
+}
+
+function codeView(stores){
+  const bag = new Map();
+  stores.forEach(s=>s.items.forEach(it=>{
+    if(!bag.has(it.key)) bag.set(it.key,[]);
+    bag.get(it.key).push({store:s.name, city:s.city, url:it.url});
+  }));
+  return DATA.codes.filter(k=>bag.has(k))
+    .sort((a,b)=>byRank(rank(a),rank(b)))
+    .map(key=>({ key, rows:bag.get(key) }));
+}
+
+function byStore(view){
+  return view.map(({city, stores})=>
+    stores.map(s=>{
       const key = "s:"+s.id, open = !S.closed.has(key);
       return `<section class="grp ${open?"":"closed"}" data-key="${esc(key)}">
         <div class="ghead">
@@ -567,14 +629,9 @@ function byStore(stores){
   ).join("");
 }
 
-function byCode(stores){
-  const bag = new Map();
-  stores.forEach(s=>s.items.forEach(it=>{
-    if(!bag.has(it.key)) bag.set(it.key,[]);
-    bag.get(it.key).push({store:s.name, city:s.city, url:it.url});
-  }));
-  return DATA.codes.filter(k=>bag.has(k)).map(itemKey=>{
-    const rows = bag.get(itemKey), gkey = "c:"+itemKey, open = !S.closed.has(gkey);
+function byCode(view){
+  return view.map(({key:itemKey, rows})=>{
+    const gkey = "c:"+itemKey, open = !S.closed.has(gkey);
     return `<section class="grp byCode ${open?"":"closed"}" data-key="${esc(gkey)}">
       <div class="ghead">
         <button class="gtoggle" aria-expanded="${open}">
@@ -618,19 +675,50 @@ function wireGroups(){
         const title = g.querySelector(".gcode").textContent + " " + g.querySelector(".gname").textContent;
         text = title + "\n" + rows.map(r=>r.querySelector(".go").getAttribute("href")).join("\n");
       }
-      copy(text, e.currentTarget, rows.length);
+      const btn = e.currentTarget;
+      copy(text, ()=>{
+        btn.classList.add("done"); btn.textContent = "已複製";
+        setTimeout(()=>{ btn.classList.remove("done"); btn.textContent = "複製"; }, 1400);
+        toast("已複製 " + rows.length + " 條連結");
+      });
     };
   });
 }
 
-function copy(text, btn, n){
-  const done = ()=>{
-    btn.classList.add("done"); btn.textContent = "已複製";
-    setTimeout(()=>{ btn.classList.remove("done"); btn.textContent = "複製"; }, 1400);
-    toast("已複製 " + n + " 條連結");
-  };
+/* 複製全部：畫面上符合條件、還沒點過的連結（含收合的群組），順序同畫面 */
+function unseenView(){
+  const stores = visibleStores();
+  if(S.mode==="store"){
+    const blocks = [];
+    storeView(stores).forEach(c=>c.stores.forEach(s=>s.items.forEach(it=>{
+      if(!SEEN.has(it.url)) blocks.push({ text:it.code+" "+it.name+"\n"+it.url, urls:[it.url] });
+    })));
+    return blocks;
+  }
+  return codeView(stores).map(g=>{
+    const urls = g.rows.map(r=>r.url).filter(u=>!SEEN.has(u));
+    return { text:g.key.split("::")[0]+" "+(DATA.names.get(g.key)||"")+"\n"+urls.join("\n\n"), urls };
+  }).filter(b=>b.urls.length);
+}
+function syncCopyAll(){
+  const n = unseenView().reduce((n,b)=>n+b.urls.length,0);
+  const btn = document.getElementById("copyAll");
+  btn.textContent = "複製全部 " + n;
+  btn.disabled = !n;
+}
+function copyAll(){
+  const blocks = unseenView();
+  const urls = blocks.flatMap(b=>b.urls);
+  if(!urls.length) return;
+  copy(blocks.map(b=>b.text).join("\n\n"), ()=>{
+    urls.forEach(u=>SEEN.add(u)); saveSeen(); render();   // 視同按過抽獎，只在複製成功後才標
+    toast("已複製 " + urls.length + " 條連結，已標為已點");
+  });
+}
+
+function copy(text, done){
   if(navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(text).then(done).catch(()=>legacy(text,done));
+    navigator.clipboard.writeText(text).then(done, ()=>legacy(text,done));
   }else legacy(text,done);
 }
 function legacy(text, done){
@@ -656,14 +744,23 @@ function syncControls(stores){
 
   setCount("dCity", S.cities.size);
   setCount("dCode", S.codes.size);
+  setCount("dSort", S.prio.length);
   document.querySelectorAll(".chip").forEach(ch=>{
+    if(ch.dataset.kind==="prio"){
+      const r = rank(ch.dataset.v);
+      ch.setAttribute("aria-pressed", String(r!==Infinity));
+      ch.querySelector(".r").textContent = r===Infinity ? "" : rankMark(r);
+      return;
+    }
     const set = ch.dataset.kind==="city" ? S.cities : S.codes;
     ch.setAttribute("aria-pressed", String(set.has(ch.dataset.v)));
   });
+  syncPrioList();
 
   const any = S.cities.size || S.codes.size || S.q.trim();
   document.getElementById("clear").disabled = !any;
   document.getElementById("resetSeen").disabled = !SEEN.size;
+  syncCopyAll();
 
   const keys = groupKeys(stores);
   const toggleAll = document.getElementById("toggleAll");
@@ -685,6 +782,35 @@ function syncControls(stores){
   document.getElementById("activeCount").textContent = tags.length;
   if(!tags.length) wrap.classList.remove("open");
 }
+function rankMark(i){ return i<20 ? String.fromCharCode(0x2460+i) : "("+(i+1)+")"; }   // ①…⑳
+function syncPrioList(){
+  const present = new Set(DATA.codes);
+  const last = S.prio.length-1;
+  document.getElementById("prioList").innerHTML = S.prio.map((k,i)=>
+    `<div class="prow${present.has(k)?"":" gone"}">
+      <span class="pr">${rankMark(i)}</span>
+      <span class="pc">${esc(k.split("::")[0])}</span>
+      <span class="pn">${esc(prioName(k))}</span>
+      <button data-prio-up="${i}" aria-label="往上" ${i?"":"disabled"}>↑</button>
+      <button data-prio-down="${i}" aria-label="往下" ${i<last?"":"disabled"}>↓</button>
+      <button data-prio-del="${i}" aria-label="移除">×</button>
+    </div>`
+  ).join("");
+}
+function togglePrio(key){
+  const i = S.prio.indexOf(key);
+  if(i<0){ S.prio.push(key); S.prioNames[key] = DATA.names.get(key) || key.split("::")[1]; }
+  else removePrio(i);
+}
+function removePrio(i){
+  const [k] = S.prio.splice(i,1);
+  delete S.prioNames[k];
+}
+function movePrio(i, d){
+  const j = i+d;
+  if(j<0 || j>=S.prio.length) return;
+  [S.prio[i], S.prio[j]] = [S.prio[j], S.prio[i]];
+}
 function tag(kind,v,label){
   return `<span class="tag"><b>${esc(label)}</b><button data-kind="${kind}" data-v="${esc(v)}" aria-label="移除 ${esc(label)}">×</button></span>`;
 }
@@ -702,6 +828,7 @@ document.getElementById("mStore").onclick = ()=>{ S.mode="store"; saveState(); r
 document.getElementById("mCode").onclick  = ()=>{ S.mode="code";  saveState(); render(); };
 document.getElementById("clear").onclick  = clearAll;
 document.getElementById("reload").onclick = load;
+document.getElementById("copyAll").onclick = copyAll;
 document.getElementById("activeToggle").onclick = ()=>{
   const wrap = document.getElementById("activeWrap");
   const open = wrap.classList.toggle("open");
@@ -737,7 +864,9 @@ document.querySelectorAll(".drop").forEach(d=>{
   };
 });
 document.addEventListener("click", e=>{
-  if(e.target.closest(".drop")) return;   // keep the panel open while picking
+  // keep the panel open while picking; must stay registered before the action listener below,
+  // which re-renders the panel and would detach e.target before this check
+  if(e.target.closest(".drop")) return;
   document.querySelectorAll(".drop").forEach(x=>{ x.classList.remove("on"); x.querySelector(".trig").setAttribute("aria-expanded","false"); });
 });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") document.querySelectorAll(".drop").forEach(x=>x.classList.remove("on")); });
@@ -750,8 +879,22 @@ document.addEventListener("click", e=>{
     const row = go.closest(".row"); if(row) row.classList.add("seen");
     saveSeen();
     document.getElementById("resetSeen").disabled = false;
+    syncCopyAll();
   }
   const chip = e.target.closest(".chip");
+  if(chip && chip.dataset.kind==="prio"){
+    togglePrio(chip.dataset.v);
+    saveState(); render(); return;
+  }
+  const pb = e.target.closest("[data-prio-up],[data-prio-down],[data-prio-del],[data-prio-clear]");
+  if(pb){
+    const d = pb.dataset;
+    if("prioClear" in d){ S.prio = []; S.prioNames = {}; }
+    else if("prioDel" in d) removePrio(+d.prioDel);
+    else if("prioUp" in d) movePrio(+d.prioUp, -1);
+    else movePrio(+d.prioDown, 1);
+    saveState(); render(); return;
+  }
   if(chip){
     const set = chip.dataset.kind==="city" ? S.cities : S.codes;
     set.has(chip.dataset.v) ? set.delete(chip.dataset.v) : set.add(chip.dataset.v);
