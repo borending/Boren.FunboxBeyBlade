@@ -42,6 +42,8 @@ Everything lives in `index.html`: inline `<style>` for the UI, inline `<script>`
 
 5. Everything is wired via plain `onclick`/`oninput` assignment at the bottom of the script — no event delegation framework, no components.
 
+6. **連結歸類工具** (self-contained IIFE just before `loadState()`) — a separate utility opened from the bottom-right FAB (`#fab`) into a modal sheet (`#sheet`). The user pastes free-form "product name + link" text; it groups links by product code (`UX-03`, `BXG-04`…) and outputs a copyable list. Independent of `DATA`/`S`; it only reuses `store`, `copy()` and `toast()`. Its draft input persists under `funbox-tool-v1`. Its CSS classes are prefixed `tl-`/`sheet-` to avoid colliding with the board's `.panel`/`.row`.
+
 ## Working in this file
 
 - Keep it a single self-contained HTML file — that's the deliberate design (easy to host anywhere, e.g. GitHub Pages, with zero build step).

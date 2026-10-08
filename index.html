@@ -274,6 +274,66 @@ a{color:inherit}
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* ---------- 連結歸類工具（FAB + 視窗） ---------- */
+.fab{
+  position:fixed;z-index:50;
+  right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));
+  width:54px;height:54px;background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 18px 34px -18px rgba(47,48,51,.6);
+  transition:background .18s;
+}
+.fab:hover{background:var(--gold)}
+.fab svg{width:20px;height:20px}
+body.sheet-open{overflow:hidden}
+.sheet{
+  position:fixed;inset:0;z-index:55;display:none;
+  align-items:flex-end;justify-content:center;background:rgba(47,48,51,.34);
+}
+.sheet.on{display:flex}
+.sheet-box{
+  width:100%;max-height:92vh;display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--line);
+  box-shadow:0 24px 44px -26px rgba(47,48,51,.30);
+}
+.sheet-head{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--hair)}
+.sheet-title{margin:0;font-size:12px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase}
+.sheet-x{margin-left:auto;width:32px;height:32px;font-size:20px;line-height:1;color:var(--faint)}
+.sheet-x:hover{color:var(--ink)}
+.sheet-body{overflow:auto;padding:16px;display:grid;gap:18px}
+.tl-col{min-width:0;display:flex;flex-direction:column;gap:9px}
+.tl-label{
+  display:flex;align-items:center;gap:14px;
+  font-size:11px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase;color:var(--faint);
+}
+.tl-label .stats{margin-left:auto;display:flex;gap:14px;text-transform:none;letter-spacing:.04em}
+.tl-label .mono{color:var(--ink);font-weight:600;font-size:13px}
+.tl-ta{
+  width:100%;height:28vh;min-height:150px;resize:vertical;
+  border:1px solid var(--line);background:var(--mist);color:var(--ink);
+  padding:10px 12px;font:12.5px/1.6 ui-monospace,"Cascadia Code",Consolas,monospace;white-space:pre;
+}
+.tl-ta::placeholder{color:var(--faint)}
+.tl-ta:focus{outline:none;border-color:var(--ink)}
+.tl-actions{display:flex;gap:16px;align-items:center}
+.tl-copy{
+  border:1px solid var(--ink);background:var(--ink);color:#fff;
+  padding:8px 18px;font-size:11.5px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase;
+  transition:background .16s,border-color .16s;
+}
+.tl-copy:hover{background:var(--gold);border-color:var(--gold)}
+.tl-copy[disabled]{background:transparent;border-color:var(--line);color:var(--faint);cursor:default}
+.tl-note{font-size:12.5px;line-height:1.6;color:var(--gold);border:1px solid var(--gold);padding:8px 11px}
+.tl-hint{margin:0;font-size:12px;line-height:1.75;color:var(--muted);letter-spacing:.02em}
+@media (min-width:761px){
+  .sheet{align-items:center;padding:24px}
+  .sheet-box{width:min(960px,100%);max-height:86vh}
+  .sheet-head{padding:16px 20px}
+  .sheet-body{grid-template-columns:1fr 1fr;padding:20px}
+  .tl-ta{height:44vh}
+  .tl-hint{grid-column:1/-1}
+}
+
 /* enhancements for wider viewports — base styles above are mobile-first */
 @media (min-width:601px){
   .mast{padding:54px 0 30px}
@@ -351,6 +411,37 @@ a{color:inherit}
   </div>
   <div id="list"></div>
 
+</div>
+<button class="fab" id="fab" aria-label="連結歸類工具" aria-haspopup="dialog" aria-expanded="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true">
+    <path d="M4 6h10M4 12h10M4 18h6M17 14v7M14 18l3 3 3-3"/>
+  </svg>
+</button>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-box">
+    <div class="sheet-head">
+      <h2 class="sheet-title" id="sheetTitle">連結歸類工具</h2>
+      <button class="sheet-x" id="sheetX" aria-label="關閉">×</button>
+    </div>
+    <div class="sheet-body">
+      <div class="tl-col">
+        <label class="tl-label" for="tlIn">貼上原始文字</label>
+        <textarea class="tl-ta" id="tlIn" spellcheck="false" placeholder="UX-03 魔導神杖&#10;https://lin.ee/…&#10;1.BXG-04 銀牙烈虎S -&#10;https://lin.ee/…"></textarea>
+        <div class="tl-actions">
+          <button class="btn-clear alt" id="tlClear" disabled>清空</button>
+        </div>
+      </div>
+      <div class="tl-col">
+        <div class="tl-label"><span>整理結果</span><span class="stats" id="tlStats"></span></div>
+        <textarea class="tl-ta" id="tlOut" readonly spellcheck="false"></textarea>
+        <div class="tl-actions">
+          <button class="tl-copy" id="tlCopy" disabled>複製結果</button>
+        </div>
+        <div class="tl-note" id="tlNote" hidden></div>
+      </div>
+      <p class="tl-hint">貼上多批「品項名稱＋連結」文字，依商品編號（例如 UX-03、BXG-04）自動合併同一品項的所有連結；名稱取該編號下最完整的一次用字。無法辨識編號的行會整行當作品項名稱。</p>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -911,6 +1002,116 @@ document.addEventListener("click", e=>{
     saveState(); render();
   }
 });
+
+/* ---------- 連結歸類工具：把多批「品項名稱＋連結」依商品編號合併 ---------- */
+(function(){
+  const TKEY = "funbox-tool-v1";   // 草稿，關掉視窗或重新整理都還在
+  const CODE_RE = /^([A-Za-z]{1,4}-\d+)\s*/;
+  const URL_RE = /https?:\/\/\S+/;
+  const NUM_PREFIX_RE = /^\(?\d{1,3}[.\)]?\s*/;
+  const QUOTE_RE = /^["'“”‘’`]+|["'“”‘’`]+$/g;
+  const $ = id=>document.getElementById(id);
+  const fab = $("fab"), sheet = $("sheet"), inp = $("tlIn"), out = $("tlOut");
+
+  function tidy(raw){
+    return raw.replace(QUOTE_RE,"").trim().replace(NUM_PREFIX_RE,"").replace(/\s+/g," ").replace(/\s*[-–—]+$/,"").trim();
+  }
+
+  function parse(text){
+    const entries = [], ignored = [];
+    let pending = "";
+    for(const line of text.split(/\r?\n/)){
+      const t = line.trim();
+      if(!t) continue;
+      const m = t.match(URL_RE);
+      if(m){
+        const before = t.slice(0, m.index).trim();
+        const name = tidy(before || pending) || "(未命名品項)";
+        pending = "";
+        entries.push({ name, url:m[0] });
+      }else{
+        if(pending) ignored.push(pending);
+        pending = t;
+      }
+    }
+    if(pending) ignored.push(pending);
+
+    const groups = new Map();
+    for(const e of entries){
+      const cm = e.name.match(CODE_RE);
+      const code = cm ? cm[1].toUpperCase() : null;
+      const rest = cm ? e.name.slice(cm[0].length).trim() : e.name;
+      const key = code || e.name;
+      if(!groups.has(key)) groups.set(key, { code, rests:[], urls:[] });
+      const g = groups.get(key);
+      if(rest && !g.rests.includes(rest)) g.rests.push(rest);
+      if(!g.urls.includes(e.url)) g.urls.push(e.url);
+    }
+
+    const coll = new Intl.Collator("en", { numeric:true, sensitivity:"base" });
+    const result = [...groups.entries()].map(([key,g])=>{
+      const best = g.rests.slice().sort((a,b)=>b.length-a.length)[0] || "";
+      const name = g.code ? (best ? g.code+" "+best : g.code) : (best || key);
+      return { code:g.code, name, urls:g.urls };
+    }).sort((a,b)=>{
+      if(a.code && b.code) return coll.compare(a.code, b.code);
+      if(a.code !== b.code) return a.code ? -1 : 1;
+      return coll.compare(a.name, b.name);
+    });
+    return { result, entryCount:entries.length, ignored };
+  }
+
+  function run(){
+    const text = inp.value;
+    store.set(TKEY, text);
+    $("tlClear").disabled = !text;
+    const { result, entryCount, ignored } = parse(text);
+
+    const blocks = [];
+    result.forEach(g=>{
+      blocks.push(g.name+"\n"+g.urls[0]);
+      g.urls.slice(1).forEach(u=>blocks.push(u));
+    });
+    out.value = blocks.length ? ["品項名稱\nurl", ...blocks].join("\n\n") : "";
+    $("tlCopy").disabled = !blocks.length;
+    $("tlStats").innerHTML = entryCount
+      ? `<span><span class="mono">${result.length}</span> 個品項</span><span><span class="mono">${entryCount}</span> 條連結</span>`
+      : "";
+
+    const note = $("tlNote");
+    note.hidden = !ignored.length;
+    note.textContent = ignored.length ? "未配對到連結、已忽略：" + ignored.join("、") : "";
+  }
+
+  function open(){
+    sheet.classList.add("on");
+    document.body.classList.add("sheet-open");
+    fab.setAttribute("aria-expanded","true");
+    inp.focus();
+  }
+  function close(){
+    if(!sheet.classList.contains("on")) return;
+    sheet.classList.remove("on");
+    document.body.classList.remove("sheet-open");
+    fab.setAttribute("aria-expanded","false");
+    fab.focus();
+  }
+
+  let rTimer;
+  inp.oninput = ()=>{ clearTimeout(rTimer); rTimer = setTimeout(run, 120); };
+  fab.onclick = open;
+  $("sheetX").onclick = close;
+  sheet.onclick = e=>{ if(e.target===sheet) close(); };   // 點遮罩關閉
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); });
+  $("tlClear").onclick = ()=>{ inp.value = ""; run(); inp.focus(); };
+  $("tlCopy").onclick = ()=>{
+    if(!out.value) return;
+    copy(out.value, ()=>toast("已複製整理結果"));
+  };
+
+  inp.value = store.get(TKEY) || "";
+  run();
+})();
 
 loadState();
 load();
